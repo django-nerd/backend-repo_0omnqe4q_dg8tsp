@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from bson.objectid import ObjectId
+import random
 
 from database import db, create_document, get_documents
 from schemas import Recipe as RecipeSchema, Review as ReviewSchema, Favorite as FavoriteSchema, ShoppingList as ShoppingListSchema, SavedRecipe as SavedRecipeSchema, Cooked as CookedSchema
@@ -48,92 +49,61 @@ def test_database():
     return info
 
 
-# Seed minimal recipes for demo if empty
+UNSPLASH = [
+    "https://images.unsplash.com/photo-1523986371872-9d3ba2e2f642?q=80&w=1600&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1604908554007-5a2f89bdf3ee?q=80&w=1600&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1542444459-db63c9f6b3c6?q=80&w=1600&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1551183053-bf91a1d81141?q=80&w=1600&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=1600&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=1600&auto=format&fit=crop",
+]
+
+CUISINES = ["Italian","American","Mexican","Indian","Thai","Chinese","French","Japanese","Mediterranean"]
+DIETS = ["vegan","vegetarian","gluten-free","dairy-free","keto","paleo"]
+TAGS = ["quick","healthy","comfort","weeknight","spicy","low-carb","one-pot"]
+
+# Seed demo recipes with images
 @app.post("/api/seed")
 def seed():
     if db is None:
         raise HTTPException(500, "Database not available")
     count = db["recipe"].count_documents({})
-    if count > 0:
+    if count >= 24:
         return {"message": "Already seeded", "count": count}
 
-    demo_recipes = [
-        {
-            "title": "Creamy Tomato Pasta",
-            "description": "Quick weeknight pasta with a silky tomato-cream sauce.",
-            "ingredients": [
-                {"name": "pasta", "amount": "250g"},
-                {"name": "tomato sauce", "amount": "1 cup"},
-                {"name": "cream", "amount": "1/2 cup"},
-                {"name": "garlic", "amount": "2 cloves"},
-            ],
-            "steps": [
-                "Boil pasta until al dente",
-                "Sauté garlic, add tomato sauce and cream",
-                "Toss pasta with sauce, season, serve"
-            ],
-            "cuisine": "Italian",
-            "difficulty": "easy",
-            "prep_time_min": 10,
-            "cook_time_min": 15,
-            "dietary": ["vegetarian"],
-            "tags": ["pasta", "quick"],
-            "image_url": "https://images.unsplash.com/photo-1523986371872-9d3ba2e2f642?q=80&w=1600&auto=format&fit=crop",
-            "rating": 4.5,
-            "rating_count": 128,
-            "nutrition": {"calories": 520, "protein_g": 16, "carbs_g": 74, "fat_g": 18}
-        },
-        {
-            "title": "Lemon Herb Chicken",
-            "description": "Juicy chicken breasts with lemon, garlic and herbs.",
-            "ingredients": [
-                {"name": "chicken breast", "amount": "2"},
-                {"name": "lemon", "amount": "1"},
-                {"name": "olive oil", "amount": "2 tbsp"},
-                {"name": "garlic", "amount": "3 cloves"}
-            ],
-            "steps": [
-                "Marinate chicken with lemon, garlic, herbs",
-                "Sear and roast until cooked",
-                "Rest and serve with pan juices"
-            ],
-            "cuisine": "American",
-            "difficulty": "medium",
-            "prep_time_min": 15,
-            "cook_time_min": 20,
-            "dietary": ["high-protein", "gluten-free"],
-            "tags": ["chicken", "dinner"],
-            "image_url": "https://images.unsplash.com/photo-1604908554007-5a2f89bdf3ee?q=80&w=1600&auto=format&fit=crop",
-            "rating": 4.7,
-            "rating_count": 310,
-            "nutrition": {"calories": 430, "protein_g": 45, "carbs_g": 8, "fat_g": 22}
-        },
-        {
-            "title": "Vegan Buddha Bowl",
-            "description": "Colorful bowl with quinoa, roasted veggies and tahini.",
-            "ingredients": [
-                {"name": "quinoa", "amount": "1 cup"},
-                {"name": "sweet potato", "amount": "1"},
-                {"name": "chickpeas", "amount": "1 can"},
-                {"name": "tahini", "amount": "2 tbsp"}
-            ],
-            "steps": [
-                "Roast veggies and chickpeas",
-                "Cook quinoa",
-                "Assemble bowl and drizzle tahini"
-            ],
-            "cuisine": "Fusion",
-            "difficulty": "easy",
-            "prep_time_min": 15,
-            "cook_time_min": 25,
-            "dietary": ["vegan", "gluten-free"],
-            "tags": ["bowl", "healthy"],
-            "image_url": "https://images.unsplash.com/photo-1542444459-db63c9f6b3c6?q=80&w=1600&auto=format&fit=crop",
-            "rating": 4.6,
-            "rating_count": 205,
-            "nutrition": {"calories": 380, "protein_g": 14, "carbs_g": 60, "fat_g": 10}
-        }
+    titles = [
+        "Creamy Tomato Pasta","Lemon Herb Chicken","Vegan Buddha Bowl","Spicy Tofu Stir-fry","Garlic Butter Shrimp","Mushroom Risotto","Avocado Toast Deluxe","Beef Tacos","Margherita Pizza","Quinoa Salad","Teriyaki Salmon","Chicken Curry","Pancakes Stack","Greek Gyros","Pad Thai","Shakshuka","Falafel Wrap","Burrito Bowl","Caprese Salad","Ramen Bowl","Pesto Pasta","BBQ Chicken","Veggie Omelette","Citrus Salmon"
     ]
+
+    demo_recipes: List[dict] = []
+    for t in titles:
+        ing = [
+            {"name": "salt", "amount": "to taste"},
+            {"name": "pepper", "amount": "to taste"},
+            {"name": "garlic", "amount": f"{random.randint(1,4)} cloves"},
+        ]
+        ing += [{"name": random.choice(["chicken","beef","tofu","shrimp","pasta","quinoa","rice","tomato","onion","lemon","spinach"]), "amount": f"{random.randint(1,3)} cups"} for _ in range(3)]
+        steps = [
+            "Prep ingredients.",
+            "Cook main components.",
+            "Combine, season and serve warm.",
+        ]
+        demo_recipes.append({
+            "title": t,
+            "description": f"Delicious {t.lower()} made easy with pantry staples.",
+            "ingredients": ing,
+            "steps": steps,
+            "cuisine": random.choice(CUISINES),
+            "difficulty": random.choice(["easy","medium","hard"]),
+            "prep_time_min": random.randint(5,25),
+            "cook_time_min": random.randint(5,35),
+            "dietary": random.sample(DIETS, k=random.randint(0,2)),
+            "tags": random.sample(TAGS, k=random.randint(1,3)),
+            "image_url": random.choice(UNSPLASH),
+            "rating": round(random.uniform(3.8, 5.0), 1),
+            "rating_count": random.randint(10, 800),
+            "nutrition": {"calories": random.randint(250, 700), "protein_g": random.randint(8,40), "carbs_g": random.randint(20,90), "fat_g": random.randint(5,30)}
+        })
 
     for r in demo_recipes:
         create_document("recipe", r)
